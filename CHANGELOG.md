@@ -4,6 +4,12 @@
 
 ---
 
+## [3.8.18] — Unreleased
+
+_Development cycle in progress._
+
+---
+
 ## [3.8.17] — 2026-06-09
 
 ### ✨ New Features
