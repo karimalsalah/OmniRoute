@@ -7,6 +7,9 @@
 ## [3.8.22] — TBD
 ## [3.8.23] — TBD
 
+### 🐛 Fixed
+
+- fix(antigravity): preserve gemini-3.1-pro High/Low budget tiers (upstream accepts the suffixed ids; stop collapsing to bare gemini-3.1-pro) (#3696)
 - fix: streaming combos now fail over to the next target when an upstream returns an empty/content-filtered response instead of surfacing a blank reply (#3685)
 
 ---
