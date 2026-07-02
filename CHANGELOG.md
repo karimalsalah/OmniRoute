@@ -110,6 +110,8 @@
 
 - **fix(kiro):** stop injecting a placeholder user turn on trailing tool-result turns so agentic loops aren't disrupted. (thanks @jetmiky)
 
+- **fix(translator):** prevent doubled tool arguments in OpenAI-to-Claude responses (duplicate finish_reason guard + string tool-input passthrough). (thanks @vishalrajv)
+
 ### 📝 Maintenance
 
 ---
