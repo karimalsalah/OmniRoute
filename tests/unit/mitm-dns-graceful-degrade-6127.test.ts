@@ -19,7 +19,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { provisionDnsEntries } from "../../src/mitm/manager.ts";
+import { provisionDnsEntries } from "../../src/mitm/dns/provision.ts";
 
 function makeSpyLogger() {
   const errorCalls: Array<{ payload: unknown; msg: string }> = [];
