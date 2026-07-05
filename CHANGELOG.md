@@ -4,6 +4,9 @@
 
 ### ✨ New Features
 
+- **feat(providers):** add **Yuanbao (web)** as a cookie-session provider ([#6196](https://github.com/diegosouzapw/OmniRoute/issues/6196)) — `yuanbao-web` (Tencent Yuanbao, `yuanbao.tencent.com`) with cookie-only auth (`hy_user`/`hy_token` + public agent id), SSE→OpenAI translation incl. `reasoning_content`, exposing DeepSeek V3/R1 + Hunyuan / Hunyuan-T1. Regression guard: `tests/unit/providers-yuanbao-web.test.ts`. `together-web` was **deferred** (no verifiable web-session endpoint — needs a captured request) and `huggingchat-web` **dropped** (the existing `huggingchat` already is a web-cookie provider). (thanks @chirag127)
+- **feat(providers):** route the built-in **agentrouter** through the dynamic Claude-Code wire image ([#6056](https://github.com/diegosouzapw/OmniRoute/issues/6056)) — a small static allow-set (`CC_WIRE_IMAGE_BUILTINS` in `open-sse/services/ccWireImageBuiltins.ts`), consulted by `isClaudeCodeCompatible` / `isClaudeCodeCompatibleProvider` / `applyFingerprint`, makes agentrouter adopt the CC wire-image headers + fingerprint **while guarding the CC baseUrl/auth branches** so it keeps its own registry `baseUrl` and `x-api-key` auth. Regression guard: `tests/unit/agentrouter-cc-wire-image.test.ts` (asserts the wire image is applied AND agentrouter's baseUrl/auth are preserved). Live WAF-acceptance against agentrouter.org is a VPS validation follow-up (Hard Rule #18).
+- **feat(providers):** **bulk-add API keys for Cloudflare Workers AI** ([#6174](https://github.com/diegosouzapw/OmniRoute/issues/6174)) — `cloudflare-ai` is removed from the bulk-add exclusion list and the bulk parser gains a 3-field `name|accountId|apiKey` mode; the bulk route now builds a **per-entry** `providerSpecificData` so each key carries its own `accountId` (fixing the previous shared-object reuse), and both the create + key-validation paths receive it. Regression guard: `tests/unit/bulk-api-key-parser-cloudflare.test.ts`. (thanks @muflifadla38)
 - **feat(dashboard):** routing/settings UX clarity ([#6147](https://github.com/diegosouzapw/OmniRoute/issues/6147)) — (1) weighted combos show the **effective routing share %** next to each weight when weights don't sum to 100 (`WeightTotalBar.tsx`); (2) the status widget's user-facing **"Cloud Sync" label is renamed** to "Remote Settings Sync" (`CloudSyncStatus.tsx`; internal ids/state untouched); (3) built-in providers gain an **opt-in advanced base-URL override** (`isBaseUrlOverrideEligibleProvider`, hidden behind an "Advanced" toggle, reusing the existing `providerSpecificData.baseUrl` persistence — not globally widened). Regression guard: `tests/unit/routing-settings-ux-6147.test.ts`.
 
 ### 🐛 Bug Fixes
@@ -17,6 +20,16 @@
 - **fix(antigravity):** strip a trailing assistant prefill turn for Vertex Claude models to avoid upstream 400s ([#6114](https://github.com/diegosouzapw/OmniRoute/pull/6114)). Regression guard: `tests/unit/antigravity-claude-prefill-strip.test.ts`. (thanks @anki1kr)
 
 - **fix(security):** the mutable cloud-agent routes (`/api/cloud/credentials/update`, `/api/cloud/models/alias`) now require management auth instead of being treated as public. They were classified as public API routes, so a request without management credentials could update stored cloud-agent credentials and model aliases. They are removed from the public-route set, classified as management routes in the authz pipeline, and gated by `requireManagementAuth`; cloud **read**/auth routes stay public. Regression guards: `tests/unit/cloud-write-auth.test.ts`, `tests/unit/authz/classify.test.ts`, `tests/unit/public-api-routes.test.ts`. ([#6233](https://github.com/diegosouzapw/OmniRoute/pull/6233) — thanks @vittoroliveira-dev)
+
+- **refactor(dashboard):** extract the onboarding-wizard "Open provider details" link target into a pure, unit-tested `buildProviderDetailsHref(connection)` helper. The wizard already routes by `connection.id` (the node UUID) rather than the provider category slug (#6144/#6145); this hardens that behavior behind a tested helper that guards a missing id/connection. Regression guard: `tests/unit/provider-onboarding-href.test.ts`. ([#6166](https://github.com/diegosouzapw/OmniRoute/pull/6166) — thanks @KooshaPari)
+
+### ✨ New Features
+
+- **feat(rankings):** add a **'Configured Only'** filter to the Free Provider Rankings page, so the table can be narrowed to just the providers you have configured connections for (with an empty-state hint when none are configured). New `en.json` keys and a pure filter helper covered by `tests/unit/free-provider-rankings-configured-filter.test.ts`. ([#6245](https://github.com/diegosouzapw/OmniRoute/pull/6245), closes [#6150](https://github.com/diegosouzapw/OmniRoute/issues/6150) — thanks @Iammilansoni)
+
+### 📝 Maintenance
+
+- **i18n(it):** add 118 missing Italian (`it`) translations (net-additive — no existing keys dropped, valid JSON), improving Italian UI coverage. ([#6212](https://github.com/diegosouzapw/OmniRoute/pull/6212) — thanks @serverless83)
 
 ---
 

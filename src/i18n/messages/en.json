@@ -4850,7 +4850,8 @@
     "doubaoWebLabel": "Dola Web",
     "doubaoWebDesc": "ByteDance AI chat via dola.com",
     "overrideBaseUrlAdvanced": "Advanced: override base URL",
-    "overrideBaseUrlHint": "Advanced: point this built-in provider at a custom endpoint. Leave blank to use the default."
+    "overrideBaseUrlHint": "Advanced: point this built-in provider at a custom endpoint. Leave blank to use the default.",
+    "bulkAddFormatHintCloudflare": "One key per line. Format: name|accountId|apiKey (Cloudflare account ID + API token)."
   },
   "settings": {
     "title": "Settings",
@@ -9032,7 +9033,11 @@
     "colScore": "Score",
     "colAvgScore": "Avg Score",
     "colModels": "Models",
-    "colType": "Type"
+    "colType": "Type",
+    "configuredOnly": "Configured Only",
+    "configuredOnlyHint": "Show only providers with active connections",
+    "noConfiguredProviders": "No configured providers found. Add a provider connection first.",
+    "colConfigured": "Status"
   },
   "discovery": {
     "title": "Provider Discovery",
