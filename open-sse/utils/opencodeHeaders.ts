@@ -75,22 +75,24 @@ export function forwardOpencodeClientHeaders(
 
   // 4. OpencodeExecutor-only: synthesize the OpenCode CLI identity Cloudflare expects
   //    on VPS egress, for any key the client did not supply (#5997).
-  const cliDefaults = options?.cliDefaults;
-  if (cliDefaults) {
-    if (!headers["User-Agent"] && !headers["user-agent"]) {
-      setUserAgentHeader(headers, cliDefaults.userAgent);
-    }
-    if (!headers["x-opencode-client"]) {
-      headers["x-opencode-client"] = cliDefaults.client;
-    }
-    if (!headers["x-opencode-project"]) {
-      headers["x-opencode-project"] = cliDefaults.project;
-    }
-    if (!headers["x-opencode-request"]) {
-      headers["x-opencode-request"] = randomUUID();
-    }
-    if (!headers["x-opencode-session"]) {
-      headers["x-opencode-session"] = randomUUID();
-    }
+  if (options?.cliDefaults) {
+    applyCliDefaults(headers, options.cliDefaults);
   }
+}
+
+/**
+ * Fill the OpenCode CLI identity headers Cloudflare requires on VPS egress, but only for
+ * keys the client did not already supply (client values always win). (#5997)
+ */
+function applyCliDefaults(
+  headers: Record<string, string>,
+  cliDefaults: { userAgent: string; client: string; project: string }
+): void {
+  if (!headers["User-Agent"] && !headers["user-agent"]) {
+    setUserAgentHeader(headers, cliDefaults.userAgent);
+  }
+  headers["x-opencode-client"] ||= cliDefaults.client;
+  headers["x-opencode-project"] ||= cliDefaults.project;
+  headers["x-opencode-request"] ||= randomUUID();
+  headers["x-opencode-session"] ||= randomUUID();
 }
