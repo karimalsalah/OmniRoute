@@ -560,3 +560,16 @@ When parsing streaming LLM responses (e.g. Responses API), check if a chunk repr
 ### 3. Database Handles in Tests
 
 Ensure that any unit tests that trigger database migrations or establish SQLite connections call `resetDbInstance()` and properly clean up/close all DB handles in a `test.after(...)` hook. Failure to release database connection handles will cause Node's native test runner to hang indefinitely.
+
+---
+
+## Model Policy
+
+This repo runs under STEADYVERSE doctrine (GODMODE V5 × Ghazal v2.0 dashboard, fused 2026-07-06).
+Default model: Fable 5 (`/model fable`). Default effort: ultracode / xhigh.
+Opus 4.8 is RESERVED for the Sunday Falsifier only. Never auto-select it.
+Dispatch tiers: Haiku 4.5 = goal-eval/lint/routing · Sonnet 5 = Hunter/Verifier/code-gen
+(promo $2/$10 through 2026-08-31) · Fable 5 = orchestration, depth 1–3 · Opus 4.8 = Falsifier only.
+All model/media calls route through OmniRoute once its health passes; direct calls are drift.
+Hook contract: exit 2 blocks, exit 0 allows, exit 1 is NEVER a block. Stop hooks carry a
+`stop_hook_active` guard as their first executable logic.
