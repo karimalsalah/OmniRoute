@@ -202,11 +202,16 @@ test("createVirtualAutoCombo includes no-auth OpenCode Free without provider_con
 test("createVirtualAutoCombo includes all chat-capable no-auth providers without connections", async () => {
   const combo: VirtualComboResult = await virtualFactory.createVirtualAutoCombo("fast");
 
-  // Each noAuth provider should have multiple models (not just the first)
+  // duckduckgo-web is excluded by the production-safe default block (VQD
+  // 503/banned-IP failures on Railway) — see the dedicated default-block
+  // tests below. It is NOT part of the "all chat-capable providers" set
+  // anymore under default settings.
   const ddgwModels = combo.models.filter((m) => m.providerId === "duckduckgo-web");
-  assert.ok(ddgwModels.length >= 1, "duckduckgo-web should have at least one model");
-  assert.ok(ddgwModels.every((m) => m.connectionId === "noauth"), "all ddgw models should use noauth connection");
-  assert.ok(ddgwModels.some((m) => m.model.startsWith("ddgw/")), "ddgw models should have correct prefix");
+  assert.equal(
+    ddgwModels.length,
+    0,
+    "duckduckgo-web must be excluded by the default production-safe block"
+  );
 
   const tllmModels = combo.models.filter((m) => m.providerId === "theoldllm");
   assert.ok(tllmModels.length >= 1, "theoldllm should have at least one model");
@@ -232,4 +237,81 @@ test("createVirtualAutoCombo keeps credential-required providers out when discon
     false,
     "OpenAI should still require a real active connection"
   );
+});
+
+test("createVirtualAutoCombo excludes duckduckgo-web and auggie by default even when settings.blockedProviders is empty", async () => {
+  const originalUnblock = process.env.OMNIROUTE_UNBLOCK_PROVIDERS;
+  const originalBlocked = process.env.OMNIROUTE_BLOCKED_PROVIDERS;
+  delete process.env.OMNIROUTE_UNBLOCK_PROVIDERS;
+  delete process.env.OMNIROUTE_BLOCKED_PROVIDERS;
+
+  try {
+    // duckduckgo-web and auggie are both NOAUTH_PROVIDERS entries (no
+    // provider_connections row needed) — the default block must apply to
+    // the synthetic no-auth candidate path, same as opencode/theoldllm
+    // above when they are NOT blocked.
+    const combo: VirtualComboResult = await virtualFactory.createVirtualAutoCombo("fast");
+
+    assert.equal(
+      combo.models.some((model) => model.providerId === "duckduckgo-web"),
+      false,
+      "duckduckgo-web (VQD 503/banned-IP on Railway) must be excluded from the default pool"
+    );
+    assert.equal(
+      combo.models.some((model) => model.providerId === "auggie"),
+      false,
+      "auggie (CLI binary not in the Docker image) must be excluded from the default pool"
+    );
+    assert.equal(
+      combo.autoConfig.candidatePool.includes("duckduckgo-web"),
+      false,
+      "duckduckgo-web must not appear in the advertised candidatePool by default"
+    );
+    assert.equal(
+      combo.autoConfig.candidatePool.includes("auggie"),
+      false,
+      "auggie must not appear in the advertised candidatePool by default"
+    );
+  } finally {
+    if (originalUnblock === undefined) delete process.env.OMNIROUTE_UNBLOCK_PROVIDERS;
+    else process.env.OMNIROUTE_UNBLOCK_PROVIDERS = originalUnblock;
+    if (originalBlocked === undefined) delete process.env.OMNIROUTE_BLOCKED_PROVIDERS;
+    else process.env.OMNIROUTE_BLOCKED_PROVIDERS = originalBlocked;
+  }
+});
+
+test("createVirtualAutoCombo restores duckduckgo-web when explicitly unblocked via OMNIROUTE_UNBLOCK_PROVIDERS", async () => {
+  const originalUnblock = process.env.OMNIROUTE_UNBLOCK_PROVIDERS;
+  process.env.OMNIROUTE_UNBLOCK_PROVIDERS = "duckduckgo-web";
+
+  try {
+    const combo: VirtualComboResult = await virtualFactory.createVirtualAutoCombo("fast");
+
+    const ddgwModels = combo.models.filter((m) => m.providerId === "duckduckgo-web");
+    assert.ok(
+      ddgwModels.length >= 1,
+      "duckduckgo-web should be restored to the pool once explicitly unblocked"
+    );
+  } finally {
+    if (originalUnblock === undefined) delete process.env.OMNIROUTE_UNBLOCK_PROVIDERS;
+    else process.env.OMNIROUTE_UNBLOCK_PROVIDERS = originalUnblock;
+  }
+});
+
+test("createVirtualAutoCombo merges OMNIROUTE_BLOCKED_PROVIDERS with settings.blockedProviders", async () => {
+  const originalBlocked = process.env.OMNIROUTE_BLOCKED_PROVIDERS;
+  process.env.OMNIROUTE_BLOCKED_PROVIDERS = "theoldllm";
+
+  try {
+    const combo: VirtualComboResult = await virtualFactory.createVirtualAutoCombo("fast");
+
+    assert.equal(
+      combo.models.some((model) => model.providerId === "theoldllm"),
+      false,
+      "providers named in OMNIROUTE_BLOCKED_PROVIDERS must be excluded"
+    );
+  } finally {
+    if (originalBlocked === undefined) delete process.env.OMNIROUTE_BLOCKED_PROVIDERS;
+    else process.env.OMNIROUTE_BLOCKED_PROVIDERS = originalBlocked;
+  }
 });
