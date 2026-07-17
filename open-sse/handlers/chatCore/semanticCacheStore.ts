@@ -60,12 +60,27 @@ export function storeSemanticCacheResponse(
   ) {
     return;
   }
+  // Never cache a response whose choices carry no content and no tool_calls
+  // (reasoning-only truncation) — replaying it poisons every retry.
+  const choices = (args.translatedResponse as { choices?: Array<Record<string, unknown>> })
+    ?.choices;
+  const msg = (choices?.[0]?.message ?? choices?.[0]?.delta) as
+    | { content?: unknown; tool_calls?: unknown[] }
+    | undefined;
+  if (
+    msg &&
+    (msg.content == null || msg.content === "") &&
+    !(Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0)
+  ) {
+    return;
+  }
   const signature = deps.generateSignature(
     args.model,
     args.body.messages ?? args.body.input,
     args.body.temperature,
     args.body.top_p,
-    args.apiKeyId ?? undefined
+    args.apiKeyId ?? undefined,
+    args.body.max_tokens ?? (args.body as { max_completion_tokens?: unknown }).max_completion_tokens
   );
   const tokensSaved = args.usage?.prompt_tokens + args.usage?.completion_tokens || 0;
   deps.setCachedResponse(signature, args.model, args.translatedResponse, tokensSaved);

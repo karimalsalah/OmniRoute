@@ -12,6 +12,11 @@ export function toPositiveInteger(value: unknown): number | null {
   return normalized > 0 ? normalized : null;
 }
 
+// Conservative output ceiling when a model's maxOutputTokens is unknown
+// (custom providers / unsynced catalogs). Buffering up to this cannot
+// trigger a provider 400 the way an unbounded raise could.
+const UNKNOWN_CAP_SAFE_MAX_OUTPUT = 8192;
+
 export function resolveReasoningBufferedMaxTokens(
   modelStr: string,
   currentMaxTokens: unknown,
@@ -23,9 +28,15 @@ export function resolveReasoningBufferedMaxTokens(
   if (current === null) return null;
 
   const capabilities = getResolvedModelCapabilities(modelStr);
-  if (capabilities.supportsThinking !== true) return null;
+  // Only a POSITIVE "does not think" verdict skips the buffer.
+  // Unknown capability (null) must not be treated as non-reasoning —
+  // custom providers (tllm/*, aug/*, oc/*) often lack catalog entries
+  // yet route to thinking models that burn the whole budget on reasoning.
+  if (capabilities.supportsThinking === false) return null;
 
-  const maxOutputTokens = toPositiveInteger(capabilities.maxOutputTokens);
+  const maxOutputTokens =
+    toPositiveInteger(capabilities.maxOutputTokens) ??
+    (capabilities.supportsThinking === true ? null : UNKNOWN_CAP_SAFE_MAX_OUTPUT);
   if (maxOutputTokens === null) return null;
   if (current > maxOutputTokens) return maxOutputTokens;
   if (current === maxOutputTokens) return current;

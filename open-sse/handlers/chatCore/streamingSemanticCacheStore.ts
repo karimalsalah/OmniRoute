@@ -69,7 +69,8 @@ function writeStreamingCacheEntry(
       args.body.messages ?? args.body.input,
       args.body.temperature,
       args.body.top_p,
-      args.apiKeyId ?? undefined
+      args.apiKeyId ?? undefined,
+      args.body.max_tokens ?? (args.body as { max_completion_tokens?: unknown }).max_completion_tokens
     );
     const tokensSaved = streamTokensSaved(args.streamUsage);
     deps.setCachedResponse(sig, args.model, cleanBody, tokensSaved);
