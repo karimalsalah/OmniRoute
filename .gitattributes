@@ -1,0 +1,4 @@
+# Keep shell scripts LF-only so Docker ENTRYPOINT shebangs work when
+# uploaded from Windows via `railway up` (CRLF shebang → ENOENT crash loop).
+*.sh text eol=lf
+Dockerfile text eol=lf

@@ -142,9 +142,12 @@ EXPOSE 20128
 # runner-web) also runs as a non-root user unless they explicitly switch back.
 USER node
 
-# Warns if the mounted data volume has wrong ownership
+# Warns if the mounted data volume has wrong ownership.
+# Invoke via /bin/sh explicitly so a Windows CRLF shebang (from `railway up`
+# on Win hosts) cannot crash the container with "No such file or directory"
+# — that was the post-5f993e32 crash loop after the sqlite fix landed.
 COPY --chmod=755 scripts/check-permissions.sh /tmp/check-permissions.sh
-ENTRYPOINT ["/tmp/check-permissions.sh"]
+ENTRYPOINT ["/bin/sh", "/tmp/check-permissions.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD ["node", "healthcheck.mjs"]

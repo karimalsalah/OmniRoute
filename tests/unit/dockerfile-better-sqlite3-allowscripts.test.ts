@@ -32,3 +32,7 @@ test("Dockerfile image.source points at karimalsalah/OmniRoute", () => {
   );
   assert.doesNotMatch(dockerfile, /diegosouzapw\/OmniRoute/);
 });
+
+test("Dockerfile ENTRYPOINT invokes check-permissions via /bin/sh (CRLF-safe)", () => {
+  assert.match(dockerfile, /ENTRYPOINT\s*\[\s*"\/bin\/sh"\s*,\s*"\/tmp\/check-permissions\.sh"\s*\]/);
+});
