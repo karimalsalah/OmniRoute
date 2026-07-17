@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/db/settings";
 import { getProviderRegistry } from "./providerRegistryAccessor";
 import type { ConnectionFields } from "@/lib/db/encryption";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
+import { resolveEffectiveBlockedProviders } from "@/shared/constants/blockedProviders";
 import { hasUsableWebSessionCredential } from "@/shared/providers/webSessionCredentials";
 import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
 import { getTokenLimit } from "../contextManager";
@@ -231,7 +232,7 @@ export async function createVirtualAutoCombo(
     getProviderConnections({ isActive: true }) as Promise<VirtualFactoryConn[]>,
     getSettings().catch(() => ({}) as Record<string, unknown>),
   ]);
-  const blockedProviders = new Set(
+  const blockedProviders = resolveEffectiveBlockedProviders(
     Array.isArray(settings.blockedProviders) ? (settings.blockedProviders as string[]) : []
   );
   const hiddenModelsMap = getHiddenModelsByProvider();

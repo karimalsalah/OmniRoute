@@ -19,6 +19,7 @@ import {
   isClaudeCodeCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
+import { resolveEffectiveBlockedProviders } from "@/shared/constants/blockedProviders";
 import type { RegistryModel } from "@omniroute/open-sse/config/providerRegistry.ts";
 
 type JsonRecord = Record<string, unknown>;
@@ -508,7 +509,7 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
       getCombos(),
       getSettings().catch(() => ({}) as Record<string, unknown>),
     ]);
-  const blockedProviders = new Set(
+  const blockedProviders = resolveEffectiveBlockedProviders(
     Array.isArray((settings as Record<string, unknown>).blockedProviders)
       ? ((settings as Record<string, unknown>).blockedProviders as string[])
       : []
