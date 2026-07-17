@@ -121,13 +121,17 @@ export function generateSignature(
   conversation,
   temperature = 0,
   topP = 1,
-  apiKeyId?: string
+  apiKeyId?: string,
+  maxTokens?: unknown
 ) {
   const payload = JSON.stringify({
     model,
     messages: normalizeConversation(conversation),
     temperature,
     top_p: topP,
+    // A request with a different output budget is a different request —
+    // never replay a low-budget response to a raised-budget retry.
+    max_tokens: maxTokens ?? null,
   });
   const digest = crypto.createHash("sha256").update(payload).digest("hex");
   // Per-key cache isolation (#3740) namespaces the signature with the apiKeyId as a

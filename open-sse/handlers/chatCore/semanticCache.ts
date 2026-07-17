@@ -45,7 +45,8 @@ export async function checkSemanticCache({
       body.messages ?? body.input,
       body.temperature,
       body.top_p,
-      apiKeyId ?? undefined
+      apiKeyId ?? undefined,
+      body.max_tokens ?? body.max_completion_tokens
     );
     const cached = getCachedResponse(signature);
     if (cached) {
