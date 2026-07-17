@@ -51,13 +51,21 @@ ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
 # at install time. better-sqlite3 still needs a native binding for the target
 # platform, so rebuild and smoke-test only that known runtime dependency below.
 #
+# npm 12 (pulled by `npm install -g npm@latest` in the base stage) default-denies
+# dependency install scripts unless listed in package.json `allowScripts`. A bare
+# `npm rebuild better-sqlite3` then prints "rebuilt successfully" while skipping
+# the native compile — Railway deploy 91327fdd failed the smoke require with
+# "Could not locate the bindings file". Force the rebuild past the allowlist AND
+# assert the .node artifact exists before continuing.
+#
 # We REQUIRE a committed package-lock.json so resolved dependency versions
 # are reproducible.
 RUN test -f package-lock.json \
   || (echo "package-lock.json is required for reproducible Docker builds" >&2 && exit 1)
 RUN --mount=type=cache,id=s/f9540f90-da15-49b2-95c5-2695745b2db7-/root/.npm,target=/root/.npm \
   npm ci --no-audit --no-fund --legacy-peer-deps --ignore-scripts \
-  && npm rebuild better-sqlite3 \
+  && npm rebuild better-sqlite3 --dangerously-allow-all-scripts --foreground-scripts \
+  && test -f node_modules/better-sqlite3/build/Release/better_sqlite3.node \
   && node -e "require('better-sqlite3')(':memory:').close()"
 
 # Build with webpack (stable). Turbopack hit a non-recoverable internal panic on this
@@ -89,7 +97,7 @@ FROM base AS runner-base
 LABEL org.opencontainers.image.title="omniroute" \
   org.opencontainers.image.description="Unified AI proxy — route any LLM through one endpoint" \
   org.opencontainers.image.url="https://omniroute.online" \
-  org.opencontainers.image.source="https://github.com/diegosouzapw/OmniRoute" \
+  org.opencontainers.image.source="https://github.com/karimalsalah/OmniRoute" \
   org.opencontainers.image.licenses="MIT"
 
 ENV NODE_ENV=production
