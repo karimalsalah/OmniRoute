@@ -36,3 +36,18 @@ test("Dockerfile image.source points at karimalsalah/OmniRoute", () => {
 test("Dockerfile ENTRYPOINT invokes check-permissions via /bin/sh (CRLF-safe)", () => {
   assert.match(dockerfile, /ENTRYPOINT\s*\[\s*"\/bin\/sh"\s*,\s*"\/tmp\/check-permissions\.sh"\s*\]/);
 });
+
+test("Dockerfile starts ENTRYPOINT as root so volume DATA_DIR can be chowned", () => {
+  // Railway mounts are root-owned; UID 1000 cannot write /app/data without this.
+  const entryIdx = dockerfile.indexOf('ENTRYPOINT ["/bin/sh", "/tmp/check-permissions.sh"]');
+  assert.ok(entryIdx > 0, "ENTRYPOINT present");
+  const before = dockerfile.slice(0, entryIdx);
+  const lastUser = [...before.matchAll(/^USER\s+(\S+)/gm)].at(-1);
+  assert.equal(lastUser?.[1], "root");
+});
+
+test("check-permissions.sh chowns DATA_DIR then drops to UID 1000", () => {
+  const script = fs.readFileSync(path.join(repoRoot, "scripts/check-permissions.sh"), "utf-8");
+  assert.match(script, /chown -R 1000:1000/);
+  assert.match(script, /setpriv --reuid=1000/);
+});
