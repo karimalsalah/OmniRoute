@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import path from "node:path";
 import { createBetterSqliteAdapter } from "./betterSqliteAdapter";
 import {
   createNodeSqliteAdapterFromDatabase,
@@ -6,7 +7,14 @@ import {
 } from "./nodeSqliteShared";
 import type { SqliteAdapter } from "./types";
 
-const _require = createRequire(import.meta.url);
+// Next standalone bundles rewrite import.meta.url to a chunk path under
+// `.build/next/server/chunks/…`. Anchoring createRequire on that URL cannot
+// resolve native packages from /app/node_modules — better-sqlite3 exists on
+// disk but tryOpenSync silently fails, ensureDbInitialized never reaches
+// sql.js pre-init, and every request 500s with "Nenhum driver SQLite".
+// Anchor at process.cwd() (Docker WORKDIR=/app) so resolution matches the
+// explicit COPY of better-sqlite3 into the runner image.
+const _require = createRequire(path.join(process.cwd(), "package.json"));
 
 declare global {
   var __omnirouteSqlJsAdapters: Map<string, SqliteAdapter> | undefined;
