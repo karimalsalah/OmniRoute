@@ -92,6 +92,13 @@ export async function registerNodejs(): Promise<void> {
   await import("@omniroute/open-sse/index.ts");
   console.log("[STARTUP] Global fetch proxy patch initialized");
 
+  // SQLite MUST be ready before secrets, migrations, HealthCheck/BATCH timers, or
+  // any other DB reader. Late ensureDbInitialized() let Timeout sweeps race into
+  // getDbInstance() while sql.js was still loading — Railway healthcheck 500s +
+  // "Chame ensureDbInitialized() no startup" / instrumentation crash.
+  await import("@/lib/db/core").then(({ ensureDbInitialized }) => ensureDbInitialized());
+  console.log("[STARTUP] SQLite ensureDbInitialized complete (before timers)");
+
   await ensureSecrets();
   const { enforceWebRuntimeEnv } = await import("@/lib/env/runtimeEnv");
   enforceWebRuntimeEnv();
@@ -271,7 +278,7 @@ export async function registerNodejs(): Promise<void> {
     console.warn("[COMPLIANCE] Could not initialize audit log:", msg);
   }
 
-  await import("@/lib/db/core").then(({ ensureDbInitialized }) => ensureDbInitialized());
+  // ensureDbInitialized() already ran at the top of registerNodejs (before timers).
 
   // Storage-configured scheduled VACUUM (#4437): registers the timer from
   // Settings > System & Storage and persists lastVacuumAt for the UI.
