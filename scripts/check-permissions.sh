@@ -10,16 +10,32 @@ fi
 
 DATA_PATH="${DATA_DIR:-/app/data}"
 
-# Railway (and most bind mounts) ship volumes as root-owned. The app runs as
-# UID 1000 (`node`). If we stay non-writable, resolveWritableDataDir falls
-# back off the volume and ops ends up on /tmp — ephemeral + SIGTERM wipe.
-# Entrypoint starts as root solely to chown the mount, then drops privileges.
+# Railway volumes mount as root. Official fix: RAILWAY_RUN_UID=0
+# (https://docs.railway.com/volumes). When that is set — or we detect
+# Railway and the mount is not writable as UID 1000 — stay root so SQLite
+# can persist under DATA_DIR=/app/data instead of falling back to /tmp.
 if [ "$(id -u)" = "0" ]; then
   mkdir -p "$DATA_PATH"
   if [ -d "$DATA_PATH" ]; then
     chown -R 1000:1000 "$DATA_PATH" 2>/dev/null || true
     chmod u+rwX "$DATA_PATH" 2>/dev/null || true
   fi
+
+  stay_root=0
+  if [ "${RAILWAY_RUN_UID:-}" = "0" ]; then
+    stay_root=1
+  elif [ -n "${RAILWAY_ENVIRONMENT:-}${RAILWAY_SERVICE_ID:-}" ]; then
+    # Probe writability as node; if chown was a no-op, keep root.
+    if ! setpriv --reuid=1000 --regid=1000 --clear-groups -- sh -c "test -w \"$DATA_PATH\"" 2>/dev/null; then
+      stay_root=1
+    fi
+  fi
+
+  if [ "$stay_root" = "1" ]; then
+    echo "[DATA_DIR] Running as root for writable volume path: $DATA_PATH"
+    exec "$@"
+  fi
+
   if command -v setpriv >/dev/null 2>&1; then
     exec setpriv --reuid=1000 --regid=1000 --clear-groups -- "$@"
   fi

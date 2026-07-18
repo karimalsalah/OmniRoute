@@ -50,4 +50,7 @@ test("check-permissions.sh chowns DATA_DIR then drops to UID 1000", () => {
   const script = fs.readFileSync(path.join(repoRoot, "scripts/check-permissions.sh"), "utf-8");
   assert.match(script, /chown -R 1000:1000/);
   assert.match(script, /setpriv --reuid=1000/);
+  // Railway volumes are root-owned — stay root when RAILWAY_RUN_UID=0.
+  assert.match(script, /RAILWAY_RUN_UID/);
+  assert.match(script, /Running as root for writable volume path/);
 });
