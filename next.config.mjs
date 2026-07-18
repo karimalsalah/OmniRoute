@@ -200,6 +200,10 @@ const nextConfig = {
     "thread-stream",
     "pino-abstract-transport",
     "better-sqlite3",
+    // sql.js WASM fallback must stay external — bundling it into instrumentation
+    // throws "Cannot set properties of undefined (setting 'exports')" and aborts
+    // Next listen (Railway healthcheck = service unavailable).
+    "sql.js",
     // sqlite-vec ships a native vec0.so loaded at runtime via createRequire().
     // Turbopack otherwise tries to bundle the .so and fails with "Unknown module
     // type"; externalizing it keeps the require at runtime (like better-sqlite3).

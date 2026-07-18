@@ -1279,11 +1279,34 @@ export async function ensureDbInitialized(): Promise<void> {
     return;
   }
 
-  // No synchronous driver available — pre-initialize sql.js (WASM, async)
-  console.warn("[DB] Pre-initializing sql.js WASM (synchronous drivers unavailable)...");
-  await preInitSqlJs(SQLITE_FILE);
-  // Agora getSqlJsAdapter() retornará o adapter, e getDbInstance() vai usá-lo
-  getDbInstance();
+  // Bundler-proof async node:sqlite (Railway Next standalone — sync path often misses)
+  try {
+    const { tryOpenNodeSqliteAsync } = await import("./adapters/driverFactory");
+    const asyncNode = await tryOpenNodeSqliteAsync(SQLITE_FILE);
+    if (asyncNode) {
+      asyncNode.close();
+      getDbInstance();
+      return;
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[DB] Async node:sqlite probe failed:", msg);
+  }
+
+  // Last resort: sql.js WASM. Under Next instrumentation this import can throw
+  // "Cannot set properties of undefined (setting 'exports')" — never let that
+  // kill process boot / Railway healthcheck (service unavailable).
+  try {
+    console.warn("[DB] Pre-initializing sql.js WASM (synchronous drivers unavailable)...");
+    await preInitSqlJs(SQLITE_FILE);
+    getDbInstance();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(
+      "[DB] sql.js pre-init failed; continuing boot so the HTTP server can listen:",
+      msg
+    );
+  }
 }
 
 // ──────────────── JSON → SQLite Migration ────────────────

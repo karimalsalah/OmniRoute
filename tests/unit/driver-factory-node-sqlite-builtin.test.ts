@@ -21,6 +21,11 @@ test("driverFactory loads node:sqlite via getBuiltinModule", () => {
   assert.match(src, /function loadNodeSqliteModule/);
 });
 
+test("driverFactory exposes bundler-proof async node:sqlite import", () => {
+  assert.match(src, /tryOpenNodeSqliteAsync/);
+  assert.match(src, /return import\(specifier\)/);
+});
+
 test("driverFactory still anchors better-sqlite3 at process.cwd()", () => {
   const assignIdx = src.indexOf("const _require = createRequire(");
   assert.ok(assignIdx >= 0);
