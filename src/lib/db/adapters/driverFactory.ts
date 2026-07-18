@@ -8,7 +8,7 @@ import {
 import type { SqliteAdapter } from "./types";
 
 // Next standalone bundles rewrite import.meta.url to a chunk path under
-// `.build/next/server/chunks/…`. createRequire(import.meta.url) then cannot
+// `.build/next/server/chunks/…`. Anchoring createRequire on that URL cannot
 // resolve native packages from /app/node_modules — better-sqlite3 exists on
 // disk but tryOpenSync silently fails, ensureDbInitialized never reaches
 // sql.js pre-init, and every request 500s with "Nenhum driver SQLite".

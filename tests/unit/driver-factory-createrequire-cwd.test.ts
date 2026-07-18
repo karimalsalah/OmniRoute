@@ -16,6 +16,15 @@ const src = fs.readFileSync(
 );
 
 test("driverFactory createRequire anchors at process.cwd()/package.json", () => {
-  assert.match(src, /createRequire\(\s*path\.join\(\s*process\.cwd\(\)\s*,\s*["']package\.json["']\s*\)\s*\)/);
-  assert.doesNotMatch(src, /createRequire\(\s*import\.meta\.url\s*\)/);
+  assert.match(
+    src,
+    /const _require = createRequire\(\s*path\.join\(\s*process\.cwd\(\)\s*,\s*["']package\.json["']\s*\)\s*\)/
+  );
+  // Live call site must not use import.meta.url (comments may mention it).
+  const callSites = [...src.matchAll(/const _require = createRequire\(([^)]+)\)/g)].map((m) =>
+    m[1].trim()
+  );
+  assert.equal(callSites.length, 1);
+  assert.match(callSites[0], /process\.cwd\(\)/);
+  assert.doesNotMatch(callSites[0], /import\.meta\.url/);
 });
