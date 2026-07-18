@@ -138,11 +138,13 @@ RUN chown -R node:node /app
 
 EXPOSE 20128
 
-# Drop to non-root before ENTRYPOINT/CMD so every derived stage (runner-cli,
-# runner-web) also runs as a non-root user unless they explicitly switch back.
-USER node
+# Entrypoint starts as root so check-permissions.sh can chown the Railway
+# volume mount ($DATA_DIR, default /app/data) to UID 1000, then drops via
+# setpriv/runuser before exec'ing the app. Derived stages that need a
+# different user must set USER explicitly after this stage.
+USER root
 
-# Warns if the mounted data volume has wrong ownership.
+# Chowns mounted DATA_DIR then drops to node (UID 1000).
 # Invoke via /bin/sh explicitly so a Windows CRLF shebang (from `railway up`
 # on Win hosts) cannot crash the container with "No such file or directory"
 # — that was the post-5f993e32 crash loop after the sqlite fix landed.
