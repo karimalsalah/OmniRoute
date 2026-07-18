@@ -38,11 +38,10 @@ type NodeSqliteModule = {
 /** Load Node's built-in sqlite — never via createRequire (breaks under Next standalone). */
 function loadNodeSqliteModule(): NodeSqliteModule | null {
   try {
-    const getBuiltin = (
-      process as NodeJS.Process & {
-        getBuiltinModule?: (id: string) => unknown;
-      }
-    ).getBuiltinModule;
+    // Bypass webpack/Next process polyfills that drop getBuiltinModule.
+    const getBuiltin = new Function(
+      "return typeof process !== 'undefined' && process.getBuiltinModule"
+    )() as undefined | ((id: string) => unknown);
     if (typeof getBuiltin === "function") {
       const mod = getBuiltin("node:sqlite") as NodeSqliteModule | undefined;
       if (mod?.DatabaseSync) return mod;
@@ -58,6 +57,29 @@ function loadNodeSqliteModule(): NodeSqliteModule | null {
     warnDriverOnce("node:sqlite (createRequire)", err);
   }
   return null;
+}
+
+/**
+ * Async node:sqlite open that survives Next standalone bundling.
+ * Uses Function+import so webpack cannot rewrite the specifier into a broken chunk.
+ */
+export async function tryOpenNodeSqliteAsync(filePath: string): Promise<SqliteAdapter | null> {
+  const [maj, min] = (process.versions.node ?? "0.0").split(".").map(Number);
+  if (process.versions.bun || !(maj > 22 || (maj === 22 && min >= 5))) return null;
+
+  try {
+    const dynamicImport = new Function(
+      "specifier",
+      "return import(specifier)"
+    ) as (specifier: string) => Promise<NodeSqliteModule>;
+    const mod = await dynamicImport("node:sqlite");
+    if (!mod?.DatabaseSync) return null;
+    const db = new mod.DatabaseSync(filePath);
+    return createNodeSqliteAdapterFromDatabase(db, filePath);
+  } catch (err) {
+    warnDriverOnce("node:sqlite (dynamic import)", err);
+    return null;
+  }
 }
 
 function tryOpenBetterSqlite(
@@ -98,19 +120,32 @@ function tryOpenNodeSqlite(filePath: string): SqliteAdapter | null {
   }
 }
 
+function preferNodeSqliteFirst(): boolean {
+  // Railway Next standalone: better-sqlite3 often dlopens then poisons the
+  // instrumentation module graph. Prefer built-in node:sqlite when on Railway
+  // or when explicitly requested.
+  if (process.env.OMNIROUTE_PREFER_NODE_SQLITE === "1") return true;
+  if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_SERVICE_ID) return true;
+  return false;
+}
+
 /** Tenta abrir com better-sqlite3 e node:sqlite sincronamente. Retorna null se ambos falharem. */
 export function tryOpenSync(
   filePath: string,
   options?: Record<string, unknown>
 ): SqliteAdapter | null {
-  // better-sqlite3: rápido, nativo — skip em Bun
-  if (!process.versions.bun) {
-    const better = tryOpenBetterSqlite(filePath, options);
-    if (better) return better;
+  if (process.versions.bun) return null;
+
+  const preferNode = preferNodeSqliteFirst();
+  if (preferNode) {
+    const nodeSqlite = tryOpenNodeSqlite(filePath);
+    if (nodeSqlite) return nodeSqlite;
   }
 
-  // node:sqlite: built-in desde Node 22.5 — skip em Bun
-  if (!process.versions.bun) {
+  const better = tryOpenBetterSqlite(filePath, options);
+  if (better) return better;
+
+  if (!preferNode) {
     const nodeSqlite = tryOpenNodeSqlite(filePath);
     if (nodeSqlite) return nodeSqlite;
   }
@@ -141,7 +176,7 @@ export function getSqlJsAdapter(filePath: string): SqliteAdapter | null {
 
 /**
  * Factory assíncrona completa: tenta todos os drivers em cascata.
- * Ordem: better-sqlite3 → node:sqlite → sql.js
+ * Ordem: node:sqlite (Railway) → better-sqlite3 → node:sqlite → sql.js
  */
 export async function openDatabaseAsync(
   filePath: string,

@@ -96,8 +96,14 @@ export async function registerNodejs(): Promise<void> {
   // any other DB reader. Late ensureDbInitialized() let Timeout sweeps race into
   // getDbInstance() while sql.js was still loading — Railway healthcheck 500s +
   // "Chame ensureDbInitialized() no startup" / instrumentation crash.
-  await import("@/lib/db/core").then(({ ensureDbInitialized }) => ensureDbInitialized());
-  console.log("[STARTUP] SQLite ensureDbInitialized complete (before timers)");
+  // Never let DB init throw out of instrumentation — that aborts Next listen.
+  try {
+    await import("@/lib/db/core").then(({ ensureDbInitialized }) => ensureDbInitialized());
+    console.log("[STARTUP] SQLite ensureDbInitialized complete (before timers)");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[STARTUP] ensureDbInitialized failed (continuing boot):", msg);
+  }
 
   await ensureSecrets();
   const { enforceWebRuntimeEnv } = await import("@/lib/env/runtimeEnv");
