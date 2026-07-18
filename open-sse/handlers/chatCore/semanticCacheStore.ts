@@ -40,6 +40,24 @@ const DEFAULT_DEPS: SemanticCacheStoreDeps = {
   setCachedResponse: defaultSetCachedResponse,
 };
 
+/**
+ * True when the response's first choice carries no content and no tool_calls
+ * (reasoning-only truncation — the model spent the whole output budget on
+ * reasoning). Replaying such a response from cache poisons every combo retry:
+ * the quality validator rejects it again on each attempt until the combo 503s.
+ * Shared by the non-streaming and streaming store paths.
+ */
+export function isReasoningOnlyTruncation(translatedResponse: unknown): boolean {
+  const choices = (translatedResponse as { choices?: Array<Record<string, unknown>> })?.choices;
+  const msg = (choices?.[0]?.message ?? choices?.[0]?.delta) as
+    { content?: unknown; tool_calls?: unknown[] } | undefined;
+  return (
+    !!msg &&
+    (msg.content == null || msg.content === "") &&
+    !(Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0)
+  );
+}
+
 export function storeSemanticCacheResponse(
   args: {
     enabled: boolean;
@@ -62,16 +80,7 @@ export function storeSemanticCacheResponse(
   }
   // Never cache a response whose choices carry no content and no tool_calls
   // (reasoning-only truncation) — replaying it poisons every retry.
-  const choices = (args.translatedResponse as { choices?: Array<Record<string, unknown>> })
-    ?.choices;
-  const msg = (choices?.[0]?.message ?? choices?.[0]?.delta) as
-    | { content?: unknown; tool_calls?: unknown[] }
-    | undefined;
-  if (
-    msg &&
-    (msg.content == null || msg.content === "") &&
-    !(Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0)
-  ) {
+  if (isReasoningOnlyTruncation(args.translatedResponse)) {
     return;
   }
   const signature = deps.generateSignature(
