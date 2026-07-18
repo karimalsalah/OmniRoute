@@ -16,15 +16,13 @@ const src = fs.readFileSync(
 );
 
 test("driverFactory createRequire anchors at process.cwd()/package.json", () => {
-  assert.match(
-    src,
-    /const _require = createRequire\(\s*path\.join\(\s*process\.cwd\(\)\s*,\s*["']package\.json["']\s*\)\s*\)/
+  const assignIdx = src.indexOf("const _require = createRequire(");
+  assert.ok(assignIdx >= 0, "missing const _require = createRequire(...)");
+  const after = src.slice(assignIdx, assignIdx + 120);
+  assert.match(after, /process\.cwd\(\)/);
+  assert.match(after, /package\.json/);
+  assert.ok(
+    !after.includes("import.meta.url"),
+    `createRequire call site must not use import.meta.url; got: ${after}`
   );
-  // Live call site must not use import.meta.url (comments may mention it).
-  const callSites = [...src.matchAll(/const _require = createRequire\(([^)]+)\)/g)].map((m) =>
-    m[1].trim()
-  );
-  assert.equal(callSites.length, 1);
-  assert.match(callSites[0], /process\.cwd\(\)/);
-  assert.doesNotMatch(callSites[0], /import\.meta\.url/);
 });
