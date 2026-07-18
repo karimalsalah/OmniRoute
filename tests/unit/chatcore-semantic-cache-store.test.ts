@@ -6,9 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { storeSemanticCacheResponse } = await import(
-  "../../open-sse/handlers/chatCore/semanticCacheStore.ts"
-);
+const { storeSemanticCacheResponse } =
+  await import("../../open-sse/handlers/chatCore/semanticCacheStore.ts");
 
 type Stored = { sig: unknown; model: string; response: unknown; tokens: number };
 
@@ -106,4 +105,43 @@ test("missing usage → tokensSaved coerces to 0 (NaN || 0)", () => {
   const { deps, stored } = makeDeps();
   storeSemanticCacheResponse(baseArgs({ usage: undefined }), deps);
   assert.equal(stored[0].tokens, 0);
+});
+
+test("reasoning-only truncation (empty content, no tool_calls) → no store", () => {
+  const { deps, stored } = makeDeps();
+  storeSemanticCacheResponse(
+    baseArgs({
+      translatedResponse: {
+        id: "resp-trunc",
+        choices: [{ message: { content: "", reasoning_content: "thinking…" } }],
+      },
+    }),
+    deps
+  );
+  assert.equal(stored.length, 0);
+});
+
+test("delta-shaped choice with null content and no tool_calls → no store", () => {
+  const { deps, stored } = makeDeps();
+  storeSemanticCacheResponse(
+    baseArgs({
+      translatedResponse: { id: "resp-delta", choices: [{ delta: { content: null } }] },
+    }),
+    deps
+  );
+  assert.equal(stored.length, 0);
+});
+
+test("null content but tool_calls present → stores (tool-only responses are valid)", () => {
+  const { deps, stored } = makeDeps();
+  storeSemanticCacheResponse(
+    baseArgs({
+      translatedResponse: {
+        id: "resp-tools",
+        choices: [{ message: { content: null, tool_calls: [{ id: "t1" }] } }],
+      },
+    }),
+    deps
+  );
+  assert.equal(stored.length, 1);
 });

@@ -15,6 +15,7 @@ import {
   isCacheableForWrite as defaultIsCacheableForWrite,
 } from "@/lib/semanticCache";
 import { isSmallEnoughForSemanticCache as defaultIsSmallEnough } from "../../utils/estimateSize.ts";
+import { isReasoningOnlyTruncation } from "./semanticCacheStore.ts";
 
 type LoggerLike = { debug?: (...args: unknown[]) => void } | null | undefined;
 
@@ -64,17 +65,25 @@ function writeStreamingCacheEntry(
     const cleanBody = { ...(args.streamResponseBody as Record<string, unknown>) };
     delete cleanBody._streamed;
     if (!deps.isSmallEnoughForSemanticCache(cleanBody)) return;
+    // Never cache a response whose choices carry no content and no tool_calls
+    // (reasoning-only truncation) — replaying it poisons every retry. Mirrors
+    // the non-streaming store guard; streaming assembly was the missing side.
+    if (isReasoningOnlyTruncation(cleanBody)) return;
     const sig = deps.generateSignature(
       args.model,
       args.body.messages ?? args.body.input,
       args.body.temperature,
       args.body.top_p,
       args.apiKeyId ?? undefined,
-      args.body.max_tokens ?? (args.body as { max_completion_tokens?: unknown }).max_completion_tokens
+      args.body.max_tokens ??
+        (args.body as { max_completion_tokens?: unknown }).max_completion_tokens
     );
     const tokensSaved = streamTokensSaved(args.streamUsage);
     deps.setCachedResponse(sig, args.model, cleanBody, tokensSaved);
-    args.log?.debug?.("CACHE", `Stored streaming response for ${args.model} (${tokensSaved} tokens)`);
+    args.log?.debug?.(
+      "CACHE",
+      `Stored streaming response for ${args.model} (${tokensSaved} tokens)`
+    );
   } catch {
     // Cache write failed — non-critical
   }

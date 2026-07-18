@@ -6,9 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { storeStreamingSemanticCacheResponse } = await import(
-  "../../open-sse/handlers/chatCore/streamingSemanticCacheStore.ts"
-);
+const { storeStreamingSemanticCacheResponse } =
+  await import("../../open-sse/handlers/chatCore/streamingSemanticCacheStore.ts");
 
 type Stored = { sig: unknown; model: string; body: Record<string, unknown>; tokens: number };
 
@@ -18,8 +17,12 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     isCacheableForWrite: () => true,
     isSmallEnoughForSemanticCache: () => true,
     generateSignature: (...a: unknown[]) => `sig:${JSON.stringify(a)}`,
-    setCachedResponse: (sig: unknown, model: string, body: Record<string, unknown>, tokens: number) =>
-      stored.push({ sig, model, body, tokens }),
+    setCachedResponse: (
+      sig: unknown,
+      model: string,
+      body: Record<string, unknown>,
+      tokens: number
+    ) => stored.push({ sig, model, body, tokens }),
     ...overrides,
   } as Parameters<typeof storeStreamingSemanticCacheResponse>[1];
   return { deps, stored };
@@ -84,6 +87,37 @@ test("missing usage → tokens coerce to 0", () => {
   const { deps, stored } = makeDeps();
   storeStreamingSemanticCacheResponse(baseArgs({ streamUsage: null }), deps);
   assert.equal(stored[0].tokens, 0);
+});
+
+test("reasoning-only truncation (empty content, no tool_calls) → no store", () => {
+  const { deps, stored } = makeDeps();
+  storeStreamingSemanticCacheResponse(
+    baseArgs({
+      streamResponseBody: {
+        id: "resp-trunc",
+        _streamed: true,
+        choices: [{ message: { content: "", reasoning_content: "thinking…" } }],
+      },
+      streamUsage: { prompt_tokens: 10, completion_tokens: 16 },
+    }),
+    deps
+  );
+  assert.equal(stored.length, 0);
+});
+
+test("null content but tool_calls present → stores (tool-only responses are valid)", () => {
+  const { deps, stored } = makeDeps();
+  storeStreamingSemanticCacheResponse(
+    baseArgs({
+      streamResponseBody: {
+        id: "resp-tools",
+        _streamed: true,
+        choices: [{ message: { content: null, tool_calls: [{ id: "t1" }] } }],
+      },
+    }),
+    deps
+  );
+  assert.equal(stored.length, 1);
 });
 
 test("a throwing dep is swallowed (fail-open, non-critical)", () => {
